@@ -1,5 +1,5 @@
 # Introduction
-
+#https://github.com/GeodesiaSig/getting_cleaning_data/blob/master/run_analysis.R
 The script `run_analysis.R`
 - Assumes data are downloaded from
   [UCI Machine Learning Repository](http://archive.ics.uci.edu/ml/index.html)
