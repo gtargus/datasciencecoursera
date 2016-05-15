@@ -1,0 +1,164 @@
+---
+title: "PA1_template.Rmd"
+author: "gtargus"
+date: "May 15, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+This document is part of the first assignment for reproducible research and it shows some of the feautures of Markdown & knitr in RStudio. First of all we will begin by loading all libraries necessary for the analysis.
+
+```{r pre-phase:initialitation}
+library(data.table)
+library(ggplot2)
+```
+
+## Loading and preprocessing the data
+We assume the zip file is downloaded in your current directory.
+
+```{r phase#1}
+#setwd("C:/Users/GeorgeThomas/Documents/coursera/datascience/reproducible-research/course-project-1")
+unzip(zipfile="repdata-data-activity.zip")
+data <- read.csv("activity.csv",header=TRUE,sep=",")
+```
+
+## Perform some prepprocessing of data
+Minor processing of data = we choose to convert the date field with as.Date comand
+```{r phase#1b}
+data$date<-as.Date(data$date)
+
+```
+## What is mean total number of steps taken per day?
+For this part of the assignment, you can ignore the missing values in the dataset.
+
+Calculate the total number of steps taken per day
+```{r phase#2}
+total.steps <- aggregate(steps ~ date, data, sum)
+head(total.steps)
+```
+
+And here is the histogram:
+
+```{r , echo=FALSE}
+
+ggplot(total.steps, aes(x = steps)) + 
+       geom_histogram(fill = "brown", binwidth = 1000) + 
+        labs(title="Histogram of steps taken per Day", 
+             x = "Num of Steps per Day", y = "Num of times in a day") + theme_bw() 
+```
+
+## What is the average daily activity pattern?
+
+This question is very easy to answer but it is a good opportunity to show the possibility of integrating variable displaying within text.First let's evaluate meanStep,and medianStep:
+```{r Question#3}
+meanStep   <- mean(total.steps$steps, na.rm=TRUE)
+medianStep <- median(total.steps$steps, na.rm=TRUE)
+
+```
+Now,let's display what we have found within our text like this:
+The number of mean steps is `r meanStep` and the number of median steps is `r medianStep`.
+
+
+## Time series plot of the average number of steps taken
+```{r , echo=FALSE}
+averages <- aggregate(data$steps, by=list(interval=data$interval), FUN=mean, na.rm=TRUE)
+colnames(averages) <- c("interval", "steps")
+ggplot(data=averages, aes(x=interval, y=steps)) + 
+        geom_line() +  
+        xlab("5 min interval") +
+        ylab("avg num of steps")
+
+```
+## The 5-minute interval that, on average, contains the maximum number of steps
+```{r}
+averages[which.max(averages$steps),]
+
+```
+
+,so 835 interval has a maximum of 206 steps.
+
+
+## Code to describe and show a strategy for imputing missing data
+
+Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
+To answer the question above we do:
+```{r}
+missing_vals <- sum(is.na(data$steps))
+```
+so, the number of missing values is `r missing_vals`
+
+NOTE:Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
+
+We are going to use the final proposed strategy ,namely the "5-minute interval" to fill in the missing values.
+First we are going to construct a function and then we are going to use it to build our filled version of the data.
+
+```{r}
+fill.missing.value <- function(steps, interval) {
+# Flush all -initial conditions.
+      filled <- NA
+    if (!is.na(steps))
+        filled <- c(steps)
+    else
+        filled <- (averages[averages$interval==interval, "steps"])
+    return(filled)
+}
+data.complete <- data
+data.complete$steps <- mapply(fill.missing.value, data.complete$steps, data.complete$interval)
+
+```
+Let's do a cross-check and see if indeed we have filled all missing data ,by calculating the missing data(there shouldn't be any!).
+```{r}
+sum(is.na(data.complete$steps))
+```
+## Histogram of the total number of steps taken each day after missing values are imputed
+```{r , echo=FALSE}
+total.steps.complete <- aggregate(steps ~ date, data.complete, sum)
+
+ggplot(total.steps.complete, aes(x = steps)) + 
+       geom_histogram(fill = "brown", binwidth = 1000) + 
+        labs(title="Histogram of Steps Taken per Day(filled missing data)", 
+             x = "Number of Steps per Day", y = "Number of times in a day(Count)") + theme_bw() 
+
+```
+Do these values differ from the estimates from the first part of the assignment?
+Answer: Yes ,as it can be seen from visual comparison between the two histograms 
+But let's make some additional research by simply computing basic parameters already calculated above,such as median/mean values:
+
+```{r}
+meanStepComplete   <- mean(total.steps.complete$steps, na.rm=TRUE)
+medianStepComplete <- median(total.steps.complete$steps, na.rm=TRUE)
+```
+We see that,mean Steps are the same and equal to :`r meanStep`,but median steps slightly differ:`r medianStep` and after fill: `r medianStepComplete`.
+
+## Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+Are there differences in activity patterns between weekdays and weekends?
+
+As suggested we will create a new factor variable in the dataset with two levels - "weekday" and "weekend" indicating whether a given date is a weekday or weekend day. 
+
+
+```{r}
+
+weekdays.or.weekends <- function(date) {
+    day <- weekdays(date)
+    if (day %in% c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday"))
+        return("weekday")
+    else if (day %in% c("Saturday", "Sunday"))
+        return("weekend")
+}
+data.complete$date <- as.Date(data.complete$date)
+data.complete$day <- sapply(data.complete$date, FUN=weekdays.or.weekends)
+```
+So,do a dual plotting here:
+```{r}
+averages <- aggregate(steps ~ interval + day, data=data.complete, mean)
+ggplot(averages, aes(interval, steps)) + geom_line() + facet_grid(day ~ .) +
+    xlab("5-minute interval") + ylab("Number of steps")
+```
+
+## Thank you very much for your time :-) 
