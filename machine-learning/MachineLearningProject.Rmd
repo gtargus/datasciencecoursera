@@ -1,0 +1,115 @@
+---
+title: "Practical Machine Learning - Project"
+author: "gtargus"
+date: "October 2, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, we use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants and make predictions about the manner in which they did the exercise.
+
+More information is available from the website here: <http://groupware.les.inf.puc-rio.br/har> (see the section on the Weight Lifting Exercise Dataset).
+
+
+Get libraries
+```{r}
+library(caret)
+library(rpart)
+library(compare)
+library(RColorBrewer)
+library(compareDF)
+library(rattle)
+library(randomForest)
+library(knitr)
+```
+## Data Process
+The important part is to identify the different types of NA in the train dataset and to perform the right cleanup. In our case #DIV/0! proved to be the challenging part.First we load the data 
+```{r}
+trainUrl <-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+#train = read.csv(file=trainUrl)
+ train = read.csv(file=trainUrl,header = TRUE,na.strings = c("NA","NaN","","#DIV/0!"))
+test = read.csv(file=testUrl)
+dim(test)
+dim(train)
+```
+we see that we have a training set of  19622 obs. of  160 variables and a testing set of 20 obs. of 160 variables.
+Next we perform some preprocess.
+
+## Cleaning Data
+
+We will get rid of NA data , setting a boundary of 50% NA's per variable : if more than 50% of a variable's data is NA we will simply reject this variable from our further study.We are writing a function that will allow us to choose how many NA's the row can have before it is deleted: 
+keep only data wiht no NA's
+```{r}
+#clean_train<-train[complete.cases(train),]
+#clean columns with only NA's
+clean_train<-train[colSums(!is.na(train))>0]
+clean_test<-test[colSums(!is.na(test))>0]
+clean_train <- clean_train[ lapply( clean_train, function(x) sum(is.na(x)) / length(x) ) < 0.5 ]
+clean_train<-clean_train[c(-1)]  #we remove X since it offer nothing to the study and causes problem to the analysis... 
+clean_test<-clean_test[c(-1)]  #we remove X since it offer nothing to the study and causes problem to the analysis... 
+```
+(Note that we have remove first column since it offers no real statistical value)
+ 
+
+we split the data 60-40, having 60% training data and 40% validation data.
+```{r get data}
+set.seed(12345) # For reproducibile purpose
+inTrain <- createDataPartition(clean_train$classe, p=0.60, list=FALSE)
+trainData <- clean_train[inTrain, ]
+testData <- clean_train[-inTrain, ]
+```
+## DATA MODELS
+We create our data model using the random forest algorithm and the classification algorithm.
+
+## Classification algorithms
+First we use the rpart function and the method class(classification trees) to train and predict our test data.
+```{r}
+Rpart_Fit <- rpart(classe ~ ., data=trainData, method="class")
+fancyRpartPlot(Rpart_Fit)
+```
+
+We now make prediction on our -split test data:
+
+```{r}
+predictions1 <- predict(Rpart_Fit, testData, type = "class")
+conf_rpart <- confusionMatrix(predictions1, testData$classe)
+conf_rpart
+```
+Accuracy : 0.8789
+Next we use them to actually predict on the test data 
+
+```{r}
+prediction_Rpart_fit <- predict(Rpart_Fit, clean_test, type = "class")
+prediction_Rpart_fit
+```
+
+##Random Forest
+
+Next we build a random forest algrorithm and repeat the process of train/prediction.
+The problem of very long computation time is resolved by tuning the control parameter (check <http://stackoverflow.com/questions/24857772/caret-train-rf-model-inexplicably-long-execution> for more details)
+
+```{r}
+control <- trainControl(method = "cv", number = 5,allowParallel=TRUE)
+RandomForest_Fit<-train(classe ~.,data=trainData,method="rf",trControl =control)
+print(RandomForest_Fit)
+predictions2 <- predict(RandomForest_Fit, trainData)
+conf_rf <- confusionMatrix(trainData$classe , predictions2)
+conf_rf
+```
+The accuracy is really impressing for the validation set:
+Accuracy : 0.9994 .
+Next we move to our testing set: 
+
+```{r}
+print(RandomForest_Fit$finalModel)
+prediction_RandomForest_Fit <- predict(RandomForest_Fit, clean_test)
+prediction_RandomForest_Fit
+```
+Thank you for your time.
+
