@@ -1,0 +1,63 @@
+---
+title: "Develop Data Products Assignment"
+author: "gtargus"
+date: "October 30, 2016"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Betting Analyzer
+
+Betting analyzer is a very basic app to compute your potential profits and give you a also a possibility of success  
+
+Obviously this is an app meant for fun :-)
+
+## The formula
+
+###If we want to win 100$ by betting on 2 games then the decimal odd is 10 (10X10=100)  
+###In general:  
+####*Decimal Odd= exponential ((log ( "desired earning" / "number of predictions "))*  
+
+###Decimal odd is connected to  Win % (or Break Even %) with this formula:  
+
+###Decimal odd:X+1 / Fractional odd:X /Break Even %:(100/X+1)%
+
+## ui.R side
+```{r, eval=FALSE,echo=TRUE}
+library(shiny)
+shinyUI(fluidPage(
+ titlePanel("Betting Analyzer"),
+  sidebarLayout(
+    sidebarPanel(
+      h3("Give me amount of money "),
+sliderInput("money","Earnings in dollars:",min = 100,max = 2000000,value = 1000),
+h3("Give me number of games "),sliderInput("num_bets","Num of games:",min = 1,max = 15,value = 5)
+    ),
+    mainPanel(
+      h3("The average per game return to make that cash is :"),
+      textOutput("bettingAnalysis"),
+      h3("The probability of making that cash is(e-4)% :"),
+      textOutput("Odds")
+    )
+  )
+))
+```
+
+## server.R side
+```{r, eval=FALSE,echo=TRUE}
+library(shiny)
+
+shinyServer(function(input, output) {
+
+  bettingAnalysis<- reactive ({exp((log(input$money)/input$num_bets))  })
+  num_bets<- reactive ({input$num_bets })   
+
+  Odds<-reactive ({1/(bettingAnalysis() ^ num_bets()) *10000})  
+output$bettingAnalysis=renderText(bettingAnalysis())
+  output$Odds=renderText(Odds())
+})
+
+```
